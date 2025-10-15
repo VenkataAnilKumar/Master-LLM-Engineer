@@ -1,0 +1,209 @@
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        UI[Web Interface<br/>Streamlit/React]
+        Mobile[Mobile App]
+    end
+
+    subgraph "API Gateway"
+        Gateway[API Gateway<br/>Authentication<br/>Rate Limiting]
+    end
+
+    subgraph "Application Services"
+        API[FastAPI Backend<br/>Async Endpoints]
+        Agent[Agent Service<br/>Query Routing]
+        RAG[RAG Service<br/>Retrieval + Generation]
+    end
+
+    subgraph "Data Processing"
+        Ingestion[Document Ingestion<br/>Loaders + Chunking]
+        Embedding[Embedding Service<br/>OpenAI/Cohere]
+        Processor[Background Processor<br/>Celery Workers]
+    end
+
+    subgraph "Storage Layer"
+        VectorDB[(Vector Database<br/>Pinecone/Weaviate)]
+        PostgreSQL[(PostgreSQL<br/>Metadata + Users)]
+        Redis[(Redis<br/>Cache + Sessions)]
+        S3[Object Storage<br/>Documents/Files]
+    end
+
+    subgraph "LLM Providers"
+        OpenAI[OpenAI API<br/>GPT-4]
+        Claude[Anthropic API<br/>Claude 3]
+        Gemini[Google API<br/>Gemini Pro]
+    end
+
+    subgraph "Observability"
+        Logs[Centralized Logging<br/>ELK Stack]
+        Metrics[Metrics Collection<br/>Prometheus]
+        Tracing[Distributed Tracing<br/>Jaeger]
+        Monitoring[Monitoring Dashboard<br/>Grafana]
+    end
+
+    subgraph "Infrastructure"
+        K8s[Kubernetes Cluster<br/>Auto-scaling]
+        LB[Load Balancer]
+        Queue[Message Queue<br/>RabbitMQ]
+    end
+
+    %% Client connections
+    UI --> Gateway
+    Mobile --> Gateway
+    
+    %% Gateway to services
+    Gateway --> API
+    
+    %% API service connections
+    API --> Agent
+    API --> RAG
+    API --> Redis
+    API --> PostgreSQL
+    
+    %% Agent connections
+    Agent --> RAG
+    Agent --> OpenAI
+    Agent --> Claude
+    Agent --> Gemini
+    
+    %% RAG service connections
+    RAG --> VectorDB
+    RAG --> Embedding
+    RAG --> OpenAI
+    RAG --> Redis
+    
+    %% Data processing
+    Ingestion --> Processor
+    Processor --> Embedding
+    Embedding --> VectorDB
+    Ingestion --> S3
+    Processor --> PostgreSQL
+    Processor --> Queue
+    
+    %% Observability connections
+    API -.-> Logs
+    Agent -.-> Logs
+    RAG -.-> Logs
+    API -.-> Metrics
+    Agent -.-> Metrics
+    RAG -.-> Metrics
+    API -.-> Tracing
+    Agent -.-> Tracing
+    RAG -.-> Tracing
+    Metrics --> Monitoring
+    Logs --> Monitoring
+    Tracing --> Monitoring
+    
+    %% Infrastructure
+    LB --> Gateway
+    K8s --> API
+    K8s --> Agent
+    K8s --> RAG
+    K8s --> Processor
+    
+    classDef clientClass fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef gatewayClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef serviceClass fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef dataClass fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef storageClass fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef llmClass fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef obsClass fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    classDef infraClass fill:#efebe9,stroke:#3e2723,stroke-width:2px
+    
+    class UI,Mobile clientClass
+    class Gateway gatewayClass
+    class API,Agent,RAG serviceClass
+    class Ingestion,Embedding,Processor dataClass
+    class VectorDB,PostgreSQL,Redis,S3 storageClass
+    class OpenAI,Claude,Gemini llmClass
+    class Logs,Metrics,Tracing,Monitoring obsClass
+    class K8s,LB,Queue infraClass
+```
+
+## Architecture Components
+
+### Client Layer
+- **Web Interface**: Streamlit or React-based UI for user interactions
+- **Mobile App**: Optional mobile client for on-the-go access
+
+### API Gateway
+- Authentication (JWT tokens)
+- Rate limiting and throttling
+- Request routing
+- API versioning
+
+### Application Services
+- **FastAPI Backend**: Main API server with async endpoints
+- **Agent Service**: Intelligent query routing and tool selection
+- **RAG Service**: Retrieval-Augmented Generation pipeline
+
+### Data Processing
+- **Document Ingestion**: Load and parse documents (PDF, web, APIs)
+- **Embedding Service**: Generate vector embeddings
+- **Background Processor**: Async jobs for heavy processing
+
+### Storage Layer
+- **Vector Database**: Store and search embeddings (Pinecone/Weaviate)
+- **PostgreSQL**: User data, metadata, conversation history
+- **Redis**: Caching layer for performance
+- **Object Storage**: Raw documents and files
+
+### LLM Providers
+- **OpenAI**: GPT-4, GPT-3.5 Turbo
+- **Anthropic**: Claude 3 (Opus, Sonnet, Haiku)
+- **Google**: Gemini Pro
+
+### Observability
+- **Logging**: Centralized logging with ELK stack
+- **Metrics**: Prometheus for metrics collection
+- **Tracing**: Jaeger for distributed tracing
+- **Monitoring**: Grafana dashboards
+
+### Infrastructure
+- **Kubernetes**: Container orchestration and auto-scaling
+- **Load Balancer**: Distribute traffic across instances
+- **Message Queue**: RabbitMQ for async task management
+
+## Data Flow
+
+1. **User Query**:
+   - User → UI → API Gateway → FastAPI
+
+2. **Query Processing**:
+   - FastAPI → Agent Service (determines intent)
+   - Agent → RAG Service (if retrieval needed)
+
+3. **Retrieval**:
+   - RAG Service → Generate query embedding
+   - Search Vector Database
+   - Retrieve top-k relevant documents
+
+4. **Generation**:
+   - Assemble context from retrieved docs
+   - Call appropriate LLM provider
+   - Stream response back to user
+
+5. **Caching**:
+   - Check Redis for cached responses
+   - Store new responses for future queries
+
+6. **Logging & Monitoring**:
+   - All services log to centralized logging
+   - Metrics collected by Prometheus
+   - Traces for request flow
+
+## Scalability Considerations
+
+- **Horizontal Scaling**: Multiple API instances behind load balancer
+- **Caching**: Redis reduces database load and LLM API calls
+- **Async Processing**: Background jobs don't block API
+- **Vector DB**: Distributed vector search at scale
+- **Auto-scaling**: Kubernetes scales based on demand
+
+## Security Features
+
+- **Authentication**: JWT tokens for API access
+- **Rate Limiting**: Prevent abuse
+- **Input Validation**: Pydantic models
+- **API Key Management**: Secure secret storage
+- **Network Security**: Private subnets, security groups
